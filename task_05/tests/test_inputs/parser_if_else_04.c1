@@ -1,0 +1,9 @@
+void main() {
+    if (true) {
+        if (true) {
+            printf("Im if");
+        }else{
+            printf("Im else");
+        }
+    }
+}

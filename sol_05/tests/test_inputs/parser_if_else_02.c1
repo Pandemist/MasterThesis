@@ -1,0 +1,7 @@
+void main() {
+    if (true) {
+        printf("Im if");
+    }else{
+        printf("Im else");
+    }
+}

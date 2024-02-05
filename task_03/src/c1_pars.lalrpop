@@ -1,0 +1,92 @@
+use crate::c1_lex::C1Token;
+
+use crate::structs::syntax_tree::*;
+use crate::structs::symbol_type::*;
+
+use crate::lexer::LexicalError;
+
+grammar;
+
+extern {
+  type Location = usize;
+  type Error = LexicalError;
+
+  enum C1Token {
+    "bool" => C1Token::KwBoolean,
+    "do" => C1Token::KwDo,
+    "else" => C1Token::KwElse,
+    "float" => C1Token::KwFloat,
+    "for" => C1Token::KwFor,
+    "if" => C1Token::KwIf,
+    "int" => C1Token::KwInt,
+    "printf" => C1Token::KwPrintf,
+    "return" => C1Token::KwReturn,
+    "void" => C1Token::KwVoid,
+    "String" => C1Token::KwString,
+    "while" => C1Token::KwWhile,
+    "+" => C1Token::Plus,
+    "-" => C1Token::Minus,
+    "*" => C1Token::Asterisk,
+    "/" => C1Token::Slash,
+    "=" => C1Token::Assign,
+    "==" => C1Token::Eq,
+    "!=" => C1Token::Neq,
+    "<" => C1Token::LSS,
+    ">" => C1Token::GRT,
+    "<=" => C1Token::LEQ,
+    ">=" => C1Token::GEQ,
+    "&&" => C1Token::And,
+    "||" => C1Token::Or,
+    "," => C1Token::Comma,
+    ";" => C1Token::Semicolon,
+    "(" => C1Token::LParen,
+    ")" => C1Token::RParen,
+    "{" => C1Token::LBrace,
+    "}" => C1Token::RBrace,
+
+    "constInt" => C1Token::ConstInt(<i64>),
+    "constFloat" => C1Token::ConstFloat(<f64>),
+    "constBool" => C1Token::ConstBoolean(<bool>),
+    "constString" => C1Token::ConstString(<String>),
+
+    "constId" => C1Token::Id(<String>),
+    }
+}
+
+// 
+
+// Platzhalter Regel. Diese dient nur dazu, dass der umbearbeitete File keine Fehler beim Compilen (bauen) erzeugt
+pub file: () = {
+  "bool" => {},
+};
+
+//pub file: SyntaxTree = {
+	// TODO
+//};
+
+
+
+// TODO
+
+
+
+// Terminale
+//ID: String = {
+	// TODO
+//};
+
+//constint: Factor = {
+	// TODO
+//};
+
+//constfloat: Factor = {
+	// TODO
+//};
+
+//constbool: Factor = {
+	// TODO
+//};
+
+//constString: String = {
+	// TODO
+//};

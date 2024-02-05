@@ -1,0 +1,389 @@
+use crate::c1_lex::C1Token;
+
+use crate::structs::syntax_tree::*;
+use crate::structs::symbol_type::*;
+
+use crate::lexer::LexicalError;
+
+grammar;
+
+extern {
+  type Location = usize;
+  type Error = LexicalError;
+
+  enum C1Token {
+    "bool" => C1Token::KwBoolean,
+    "do" => C1Token::KwDo,
+    "else" => C1Token::KwElse,
+    "float" => C1Token::KwFloat,
+    "for" => C1Token::KwFor,
+    "if" => C1Token::KwIf,
+    "int" => C1Token::KwInt,
+    "printf" => C1Token::KwPrintf,
+    "return" => C1Token::KwReturn,
+    "void" => C1Token::KwVoid,
+    "String" => C1Token::KwString,
+    "while" => C1Token::KwWhile,
+    "+" => C1Token::Plus,
+    "-" => C1Token::Minus,
+    "*" => C1Token::Asterisk,
+    "/" => C1Token::Slash,
+    "=" => C1Token::Assign,
+    "==" => C1Token::Eq,
+    "!=" => C1Token::Neq,
+    "<" => C1Token::LSS,
+    ">" => C1Token::GRT,
+    "<=" => C1Token::LEQ,
+    ">=" => C1Token::GEQ,
+    "&&" => C1Token::And,
+    "||" => C1Token::Or,
+    "," => C1Token::Comma,
+    ";" => C1Token::Semicolon,
+    "(" => C1Token::LParen,
+    ")" => C1Token::RParen,
+    "{" => C1Token::LBrace,
+    "}" => C1Token::RBrace,
+
+    "constInt" => C1Token::ConstInt(<i64>),
+    "constFloat" => C1Token::ConstFloat(<f64>),
+    "constBool" => C1Token::ConstBoolean(<bool>),
+    "constString" => C1Token::ConstString(<String>),
+
+    "constId" => C1Token::Id(<String>),
+    }
+}
+
+// 
+
+pub file: SyntaxTree = {
+	( program )* => SyntaxTree{program: <>},
+};
+
+program: Program = {
+	<assign:declassignment> ";" => Program::DeclassAssign(assign),
+	functiondefinition => Program::FunctionDefinition(<>),
+};
+
+functiondefinition: FunctionDefinition = {
+	<typ:type_rule> <id:ID> "(" <params:parameterlist> ")" "{" <stats:statementlist> "}" => FunctionDefinition{
+		func_type: typ,
+		func_name: id,
+		func_param: params,
+		func_body: FunctionBody{
+			body: stats
+		},
+	},
+};
+
+parameterlist: Vec<Parameter> = {
+	<param:parameterOpt> => {
+		let param_vec = match param {
+	    Some(some_param) => vec![some_param],
+	    None => vec![],
+		};
+		param_vec
+	},
+	<param:parameter> <opt_param:parameteroplist> => {
+		let mut param_vec = vec![param];
+		let mut opt_param_vec = opt_param;
+
+		param_vec.append(&mut opt_param_vec);
+
+		param_vec
+	},
+};
+
+parameterOpt: Option<Parameter> = {
+	( parameter )? => <>,
+};
+
+parameteroplist: Vec<Parameter> = {
+	( parameteronlist )+ => <>,
+};
+
+parameteronlist: Parameter = {
+	"," <param:parameter> => param,
+};
+
+parameter: Parameter = {
+	<typ:type_rule> <name:ID> => Parameter{
+		typ,
+		name,
+	},
+};
+
+functioncall: FunctionCall = {
+	<id:ID> "(" <assign_vec:assigmentlist> ")" => FunctionCall{
+		func_name: id,
+		func_assigns: assign_vec,
+	},
+};
+
+assigmentlist: Vec<Assignment> = {
+	<assign:assigmentopt> => {
+		let assign_vec = match assign {
+	    Some(some_assign) => vec![some_assign],
+	    None => vec![],
+		};
+		assign_vec
+	},
+	<assign:assignment> <opt_assign:assigmentoplist> => {
+		let mut assign_vec = vec![assign];
+		let mut opt_assign_vec = opt_assign;
+
+		assign_vec.append(&mut opt_assign_vec);
+
+		assign_vec
+	},
+};
+
+assigmentopt: Option<Assignment> = {
+	( assignment )? => <>,
+};
+
+assigmentoplist: Vec<Assignment> = {
+	( assigmentonlist )+ => <>,
+};
+
+assigmentonlist: Assignment = {
+	"," <assign:assignment> => assign,
+};
+
+statementlist: StatementList = {
+	( block_if )* => StatementList{
+		stmt_list: <>
+	},
+};
+
+block_if: Block = {
+	<stat:statement> => Block::Statement(Box::new(stat)),
+	block,
+}
+
+block_no_if: Block = {
+    <stat:statement_no_if> => Block::Statement(Box::new(stat)),
+    block,
+}
+
+block: Block = {
+    "{" <stat:statementlist> "}" => Block::StatementList(stat),
+}
+
+simplestatement: Statement = {
+    <stat:returnstatement> ";" => stat,
+    <stat:printf> ";" => Statement::Printf(stat),
+    <stat:statassignment> ";" => Statement::StatAssignment(stat),
+    <stat:declassignment> ";" => Statement::DeclassAssignment(stat),
+    <stat:functioncall> ";" => Statement::FunctionCall(stat),
+    dowhilestatement,
+    ";" => Statement::EmptyStatement,
+}
+
+statement_no_if: Statement = {
+    simplestatement,
+    forstatement_no_if,
+    whilestatement_no_if,
+    ifelsestatement,
+};
+
+statement: Statement = {
+	simplestatement,
+    forstatement,
+    whilestatement,
+	ifstatement,
+};
+
+ifelsestatement: Statement = {
+	"if" "(" <assign:assignment> ")" <if_block:block_no_if> "else" <else_block:block_no_if> => Statement::IfStatement{
+		assign, if_block, else_block: Some(else_block),
+	},
+};
+
+ifstatement: Statement = {
+	"if" "(" <assign:assignment> ")" <if_block:block_if> => Statement::IfStatement{
+		assign, if_block, else_block: None,
+	},
+	"if" "(" <assign:assignment> ")" <if_block:block_no_if> "else" <else_block:block_if> => Statement::IfStatement{
+		assign, if_block, else_block: Some(else_block),
+	},
+};
+
+forstatement: Statement = {
+	"for" "(" <assign:declassignment> ";" <expression:expr> ";" <statassign:statassignment> ")" <block:block_if> => Statement::ForStatement{
+		assign: DeclassStatAssignment::DeclassAssignment(assign),
+		expression,
+		statassign,
+		block,
+
+	},
+	"for" "(" <assign:statassignment> ";" <expression:expr> ";" <statassign:statassignment> ")" <block:block_if> => Statement::ForStatement{
+		assign: DeclassStatAssignment::StatAssignment(assign),
+		expression,
+		statassign,
+		block,
+	},
+};
+
+whilestatement: Statement = {
+	"while" "(" <assign:assignment> ")" <block:block_if> => Statement::WhileStatement{
+		assign,
+		block,
+	},
+};
+
+forstatement_no_if: Statement = {
+	"for" "(" <assign:declassignment> ";" <expression:expr> ";" <statassign:statassignment> ")" <block:block_no_if> => Statement::ForStatement{
+		assign: DeclassStatAssignment::DeclassAssignment(assign),
+		expression,
+		statassign,
+		block,
+	},
+	"for" "(" <assign:statassignment> ";" <expression:expr> ";" <statassign:statassignment> ")" <block:block_no_if> => Statement::ForStatement{
+		assign: DeclassStatAssignment::StatAssignment(assign),
+		expression,
+		statassign,
+		block,
+	},
+};
+
+whilestatement_no_if: Statement = {
+	"while" "(" <assign:assignment> ")" <block:block_no_if> => Statement::WhileStatement{
+		assign,
+		block,
+	},
+};
+
+dowhilestatement: Statement = {
+	"do" <block:block_if> "while" "(" <assign:assignment> ")"  => Statement::DoWhileStatement{
+		assign,
+		block,
+	},
+};
+
+returnstatement: Statement = {
+	"return" <assign:assigmentopt> => Statement::ReturnStatement(assign),
+};
+
+printf: Printf = {
+	"printf" "(" <assign:assignment> ")" => Printf::PrintAssign(assign),
+	"printf" "(" <str:constString> ")" => Printf::PrintString(str),
+};
+
+type_rule: SymbolType = {
+	"void" => SymbolType::Void,
+	"bool" => SymbolType::Boolean,
+	"int" => SymbolType::Integer,
+	"float" => SymbolType::Float,
+};
+
+statassignment: StatAssignment = {
+	<name:ID> "=" <assign:assignment> => StatAssignment{
+		name, 
+		assign: *Box::new(assign),
+	},
+};
+
+declassignment: DeclassAssignment = {
+	<typ:type_rule> <id:ID> => DeclassAssignment{
+		typ, 
+		name: id, 
+		assign: None
+	},
+	<typ:type_rule> <id:ID> "=" <assign:assignment> => DeclassAssignment{
+		typ, 
+		name: id, 
+		assign: Some(*Box::new(assign)),
+	},
+};
+
+assignment: Assignment = {
+	<id:ID> "=" <assign:assignment> => Assignment::Assign{
+		id, 
+		assign: Box::new(assign),
+	},
+	expr => Assignment::Expr(Box::new(<>)),
+};
+
+// Expresion
+expr: Expr = {
+	<lhs:simpexpr> "==" <rhs:simpexpr> => Expr::Eq{
+		lhs: Box::new(lhs), rhs: Box::new(rhs)
+	},
+	<lhs:simpexpr> "!=" <rhs:simpexpr> => Expr::Neq{
+		lhs: Box::new(lhs), rhs: Box::new(rhs)
+	},
+	<lhs:simpexpr> "<=" <rhs:simpexpr> => Expr::Leq{
+		lhs: Box::new(lhs), rhs: Box::new(rhs)
+	},
+	<lhs:simpexpr> ">=" <rhs:simpexpr> => Expr::Geq{
+		lhs: Box::new(lhs), rhs: Box::new(rhs)
+	},
+	<lhs:simpexpr> "<" <rhs:simpexpr> => Expr::Lst{
+		lhs: Box::new(lhs), rhs: Box::new(rhs)
+	},
+	<lhs:simpexpr> ">" <rhs:simpexpr> => Expr::Grt{
+		lhs: Box::new(lhs), rhs: Box::new(rhs)
+	},
+	simpexpr,
+};
+
+// Simple Expression
+simpexpr: Expr = {
+	"-" <t:term> => Expr::Uminus(Box::new(t)),
+	<lhs:simpexpr> "+"  <rhs:term> => Expr::Add{
+		lhs: Box::new(lhs), rhs: Box::new(rhs)
+	},
+	<lhs:simpexpr> "-"  <rhs:term> => Expr::Sub{
+		lhs: Box::new(lhs), rhs: Box::new(rhs)
+	},
+	<lhs:simpexpr> "||" <rhs:term> => Expr::LogOr{
+		lhs: Box::new(lhs), rhs: Box::new(rhs)
+	},
+	term,
+};
+
+// Term
+term: Expr = {
+	<lhs:term> "*"  <rhs:factor> => Expr::Mul{
+		lhs: Box::new(lhs), rhs
+	},
+	<lhs:term> "/"  <rhs:factor> => Expr::Div{
+		lhs: Box::new(lhs), rhs
+	},
+	<lhs:term> "&&" <rhs:factor> => Expr::LogAnd{
+		lhs: Box::new(lhs), rhs
+	},
+	factor => Expr::Factor(Box::new(<>)),
+};
+
+// Factor
+factor: Factor = {
+	constint,
+	constfloat,
+	constbool,
+	functioncall => Factor::FunctionCall(<>),
+	ID => Factor::Id(<>),
+	"(" <assign:assignment> ")" => Factor::Assignment(assign),
+};
+
+// Terminale
+ID: String = {
+	"constId" => <>,
+};
+
+constint: Factor = {
+	"constInt" => Factor::ConstInt(<>),
+};
+
+constfloat: Factor = {
+	"constFloat" => Factor::ConstFloat(<>),
+};
+
+constbool: Factor = {
+	"constBool" => Factor::ConstBool(<>),
+};
+
+
+constString: String = {
+	"constString" => <>,
+};
